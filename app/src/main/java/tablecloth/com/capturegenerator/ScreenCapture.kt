@@ -10,27 +10,24 @@ import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Handler
-import android.support.design.widget.Snackbar
-import android.util.DisplayMetrics
 import android.util.Log
-import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
 
 /**
  * Created on 2018/05/04.
  */
 class ScreenCapture(
-        val activity: Activity,
-        val uiHandler: Handler,
-        val captureWidthPixels: Int = activity.resources.displayMetrics.widthPixels,
-        val captureHeightPixels: Int = activity.resources.displayMetrics.heightPixels,
-        val captureDensityDpi: Int = activity.resources.displayMetrics.densityDpi,
-        val capturePixelFormat: Int = PixelFormat.RGBA_8888,
-        val bitmapConfig: Bitmap.Config = Bitmap.Config.ARGB_8888) {
+        private val activity: Activity,
+        private val uiHandler: Handler,
+        private val captureWidthPixels: Int = activity.resources.displayMetrics.widthPixels,
+        private val captureHeightPixels: Int = activity.resources.displayMetrics.heightPixels,
+        private val captureDensityDpi: Int = activity.resources.displayMetrics.densityDpi,
+        private val capturePixelFormat: Int = PixelFormat.RGBA_8888,
+        private val bitmapConfig: Bitmap.Config = Bitmap.Config.ARGB_8888) {
 
     companion object {
-        val REQUEST_SCREEN_CAPTURE = 1
-        val VIRTUAL_DISPLAY_NAME = "ScreenCaptureDisplay"
+        const val REQUEST_SCREEN_CAPTURE = 1
+        const val VIRTUAL_DISPLAY_NAME = "ScreenCaptureDisplay"
     }
 
     private val TAG = "ScreenCapture"
@@ -51,11 +48,19 @@ class ScreenCapture(
     private var onCaptureCallback: ((captureBitmap: Bitmap?, result: String) -> Unit)? = null
     private var onCompleteCallback: (() -> Unit)? = null
 
+    private var isCaptureAcive = false
+
     class CaptureConfig(
+            val startDurationMillis: Long = CaptureConfig.START_DURATION_ASAP,
             val capturePeriodMillis: Long = CaptureConfig.CAPTURE_PERIOD_5_FPS,
-            val maxCaptureCount: Int = CaptureConfig.MAX_CAPTURE_COUNT_NO_LIMIT,
-            val startdurationMillis: Long = CaptureConfig.START_DURATION_ASAP,
-            val stopDurationMillis: Long = CaptureConfig.STOP_DURATION_NO_LIMIT) {
+            val stopDurationMillis: Long = CaptureConfig.STOP_DURATION_NO_LIMIT,
+            val maxCaptureCount: Int = CaptureConfig.MAX_CAPTURE_COUNT_NO_LIMIT) {
+
+        constructor(startDurationMillis: Long, capturePeriodMillis: Long, maxCaptureCount: Int)
+                : this(startDurationMillis, capturePeriodMillis, CaptureConfig.STOP_DURATION_NO_LIMIT, maxCaptureCount)
+
+        constructor(startDurationMillis: Long, capturePeriodMillis: Long, stopDurationMillis: Long)
+                : this(startDurationMillis, capturePeriodMillis, stopDurationMillis, CaptureConfig.MAX_CAPTURE_COUNT_NO_LIMIT)
 
         companion object {
             val CAPTURE_PERIOD_60_FPS = 1000L / 60
@@ -75,11 +80,18 @@ class ScreenCapture(
         permissionIntent = mediaProjectionManager.createScreenCaptureIntent()
     }
 
+    fun requestCapturePermission() {
+        activity.startActivityForResult(permissionIntent, REQUEST_SCREEN_CAPTURE)
+        onCaptureCallback = null
+        onCompleteCallback = null
+    }
+
     fun startCapture(
             captureCallback: (captureBitmap: Bitmap?, result: String) -> Unit,
             completeCallback: (() -> Unit)? = null,
-            captureConfig: CaptureConfig = CaptureConfig()) {
+            config: CaptureConfig = CaptureConfig()) {
         stopCapture()
+        captureConfig = config
         currentCaptureCount = 0
         onCaptureCallback = captureCallback
         onCompleteCallback = completeCallback
@@ -88,6 +100,7 @@ class ScreenCapture(
 
     fun stopCapture() {
         virtualDisplay?.release()
+        isCaptureAcive = false
     }
 
     fun generateCaptureBitmap(): Pair<Bitmap?, String> {
@@ -119,13 +132,19 @@ class ScreenCapture(
             return Pair(false, "Result code is not Activity.RESULT_OK. Result code is $resultCode.")
         }
 
+        // Stop current capture before reset.
+        stopCapture()
+
         mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, data)
         if(mediaProjection == null) {
             return Pair(false, "Failed to get media projection.")
         }
 
         initializeCaptureDisplay()
-        registerNextCapture()
+
+        if(onCaptureCallback != null) {
+            registerNextCapture()
+        }
 
         return Pair(true, "Success get permission for screen capture.")
     }
@@ -136,17 +155,30 @@ class ScreenCapture(
             return
         }
 
+        if(!isCaptureAcive) {
+            Log.e(TAG, "capture callback called when capture is not active.")
+            return
+        }
+
         // Initialize start time millis, if not set.
         if(captureStartMillis == DEF_CAPTURE_START_MILLIS) {
             captureStartMillis = Calendar.getInstance().timeInMillis
         }
 
         val delay =
-                if(currentCaptureCount == 0) { captureConfig.startdurationMillis }
+                if(currentCaptureCount == 0) { captureConfig.startDurationMillis }
                 else { captureConfig.capturePeriodMillis }
 
         // Register
         uiHandler.postDelayed({
+
+            // Finish before capturing if capture is not currently active.
+            if(!isCaptureAcive) {
+                stopCapture()
+                return@postDelayed
+            }
+
+            // Generate screen capture.
             val result = generateCaptureBitmap()
             onCaptureCallback!!(result.first, result.second)
 
@@ -155,6 +187,7 @@ class ScreenCapture(
             if(captureConfig.maxCaptureCount != CaptureConfig.MAX_CAPTURE_COUNT_NO_LIMIT
                     && currentCaptureCount >= captureConfig.maxCaptureCount) {
                 onCompleteCallback?.invoke()
+                stopCapture()
                 return@postDelayed
             }
 
@@ -163,6 +196,7 @@ class ScreenCapture(
             if(captureConfig.stopDurationMillis != CaptureConfig.STOP_DURATION_NO_LIMIT
                     && currentMillis - captureStartMillis >= captureConfig.stopDurationMillis) {
                 onCompleteCallback?.invoke()
+                stopCapture()
                 return@postDelayed
             }
 
@@ -194,6 +228,8 @@ class ScreenCapture(
         if(virtualDisplay == null) {
             return Pair(false, "Failed to create instance of VirtualDisplay.")
         }
+
+        isCaptureAcive = true
 
         return Pair(true, "Success initialize capture display.")
     }

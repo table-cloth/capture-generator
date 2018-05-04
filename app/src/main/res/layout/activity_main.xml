@@ -3,12 +3,14 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/activity_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".MainActivity"
     tools:layout_editor_absoluteY="81dp">
 
     <Button
+        android:id="@+id/capture"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
@@ -27,10 +29,11 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        app:layout_constraintGuide_percent="0.5"
+        app:layout_constraintGuide_percent="0.8"
         />
 
     <ImageView
+        android:id="@+id/capture_image"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:background="#559999"

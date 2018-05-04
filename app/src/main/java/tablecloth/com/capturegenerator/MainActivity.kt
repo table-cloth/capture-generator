@@ -42,6 +42,9 @@ class MainActivity : AppCompatActivity() {
     private var imageReader: ImageReader? = null
     private var uiHandler: Handler? = null
 
+
+//    private lateinit var screenCapture: ScreenCapture = null
+
     init {
     }
 
@@ -61,16 +64,18 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "Start permission intent.")
         startActivityForResult(permissionIntent, REQUEST_SCREEN_CAPTURE)
 
+//        screenCapture.initialize(onActivityResult = )
+
         capture_image.setOnClickListener({ _ ->
-//            Log.d(TAG, "Start permission intent by image.")
-//            startActivityForResult(permissionIntent, REQUEST_SCREEN_CAPTURE)
+            Log.d(TAG, "Start permission intent by image.")
+            startActivityForResult(permissionIntent, REQUEST_SCREEN_CAPTURE)
         })
 
         capture.setOnClickListener({ _ ->
-            capture_image.setImageBitmap(updateCaptureImage())
+//            capture_image.setImageBitmap(updateCaptureImage())
 
-//            Log.d(TAG, "Start permission intent by button.")
-//            startActivityForResult(permissionIntent, REQUEST_SCREEN_CAPTURE)
+            Log.d(TAG, "Start permission intent by button.")
+            startActivityForResult(permissionIntent, REQUEST_SCREEN_CAPTURE)
         })
 
 
@@ -87,6 +92,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         if(resultCode == Activity.RESULT_OK) {
+            Log.d(TAG, "SUCCESSSSSSS")
             Snackbar.make(activity_root, "Permission is ON", Snackbar.LENGTH_SHORT).show()
         } else {
             Snackbar.make(activity_root, "Permission is OFF", Snackbar.LENGTH_SHORT).show()

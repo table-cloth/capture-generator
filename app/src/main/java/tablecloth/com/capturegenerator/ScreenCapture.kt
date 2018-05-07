@@ -12,6 +12,7 @@ import android.media.projection.MediaProjectionManager
 import android.os.Handler
 import android.util.Log
 import java.util.*
+import java.util.concurrent.Executors
 
 /**
  * Created on 2018/05/04.
@@ -49,6 +50,8 @@ class ScreenCapture(
     private var onCompleteCallback: (() -> Unit)? = null
 
     private var isCaptureAcive = false
+
+    private val threadPool = Executors.newCachedThreadPool()
 
     class CaptureConfig(
             val startDurationMillis: Long = CaptureConfig.START_DURATION_ASAP,
@@ -168,43 +171,82 @@ class ScreenCapture(
         val delay =
                 if(currentCaptureCount == 0) { captureConfig.startDurationMillis }
                 else { captureConfig.capturePeriodMillis }
+        Log.d(TAG, "delay is set to $delay")
 
-        // Register
-        uiHandler.postDelayed({
+        threadPool.submit({
+//
+            Thread.sleep(delay)
+
+//        uiHandler.postDelayed({
+            count ++
+
+            val start = getDateStr()
+            Log.d(TAG, "Start submit $count : $start")
 
             // Finish before capturing if capture is not currently active.
             if(!isCaptureAcive) {
                 stopCapture()
-                return@postDelayed
+
+                val end = getDateStr()
+                Log.d(TAG, "Cancel submit $count : $end")
+
+                return@submit
             }
 
-            // Generate screen capture.
-            val result = generateCaptureBitmap()
-            onCaptureCallback!!(result.first, result.second)
+            var doRegisterNextCapture = true
 
             // Finish if count reaches maximum count.
             currentCaptureCount++
             if(captureConfig.maxCaptureCount != CaptureConfig.MAX_CAPTURE_COUNT_NO_LIMIT
                     && currentCaptureCount >= captureConfig.maxCaptureCount) {
-                onCompleteCallback?.invoke()
-                stopCapture()
-                return@postDelayed
+                doRegisterNextCapture = false
             }
 
             // Finish if time reaches stop duration.
             val currentMillis = Calendar.getInstance().timeInMillis
             if(captureConfig.stopDurationMillis != CaptureConfig.STOP_DURATION_NO_LIMIT
                     && currentMillis - captureStartMillis >= captureConfig.stopDurationMillis) {
-                onCompleteCallback?.invoke()
-                stopCapture()
-                return@postDelayed
+                doRegisterNextCapture = false
             }
 
-            // Continue registering next capture.
-            registerNextCapture()
+            var captureResult: Pair<Bitmap?, String>? = null
 
-        }, delay)
+            if(doRegisterNextCapture) {
+                captureResult = generateCaptureBitmap()
+                registerNextCapture()
+            } else {
+                captureResult = generateCaptureBitmap()
+                stopCapture()
+            }
+
+                // Generate screen capture.
+
+            uiHandler.post({
+                onCaptureCallback?.invoke(captureResult.first, captureResult.second)
+                if(doRegisterNextCapture) {
+                    onCompleteCallback?.invoke()
+                }
+
+                val end = getDateStr()
+                Log.d(TAG, "Finish submit $count : $end")
+            })
+        })
     }
+
+    private fun getDateStr(): String {
+        val cal = Calendar.getInstance()
+        val year = cal.get(Calendar.YEAR)
+        val month = cal.get(Calendar.MONTH)
+        val day = cal.get(Calendar.DAY_OF_MONTH)
+        val hour = cal.get(Calendar.HOUR_OF_DAY)
+        val min = cal.get(Calendar.MINUTE)
+        val sec = cal.get(Calendar.SECOND)
+        val millisec = cal.get(Calendar.MILLISECOND)
+        return "$year/$month/$day - $hour:$min:$sec:$millisec"
+
+    }
+
+    var count = 0
 
     private fun initializeCaptureDisplay(): Pair<Boolean, String> {
         imageReader = ImageReader.newInstance(

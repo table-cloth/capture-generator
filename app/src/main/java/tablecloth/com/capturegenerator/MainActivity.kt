@@ -31,11 +31,22 @@ class MainActivity : AppCompatActivity() {
                         }
                         Log.d(TAG, "Capture success. Result: $result")
                         capture_image.setImageBitmap(captureBitmap)
+
+                        FileUtil.save2SharedPref(this, "cache", captureBitmap)
+
+                        val cache =
+                                FileUtil.loadSharedPrefBitmap(this, "cache")
+                        cache_image.setImageBitmap(cache)
+
                     },
                     completeCallback = {
                         Log.d(TAG, "Capture complete.")
+
+                        val cache =
+                                FileUtil.loadSharedPrefBitmap(this, "cache")
+                        cache_image.setImageBitmap(cache)
                     },
-                    config = ScreenCapture.CaptureConfig(100L, 3000L, 3))
+                    config = ScreenCapture.CaptureConfig(100L, 1000L, 10))
         })
 
     }

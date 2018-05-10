@@ -1,5 +1,6 @@
 package tablecloth.com.capturegenerator
 
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.support.v7.app.AppCompatActivity
@@ -23,19 +24,23 @@ class MainActivity : AppCompatActivity() {
         screenCapture.requestCapturePermission()
 
         capture.setOnClickListener({
-            screenCapture.startCapture(
-                    captureCallback = { captureBitmap: Bitmap?, result: String ->
-                        if(captureBitmap == null) {
-                            Log.e(TAG, "Capture bitmap is null. Result: $result")
-                            return@startCapture
-                        }
-                        Log.d(TAG, "Capture success. Result: $result")
-                        capture_image.setImageBitmap(captureBitmap)
-                    },
-                    completeCallback = {
-                        Log.d(TAG, "Capture complete.")
-                    },
-                    config = ScreenCapture.CaptureConfig(100L, 3000L, 3))
+
+            NotificationUtil.register(applicationContext, MainActivity::class.java)
+//            NotificationUtil.register(applicationContext, MainActivity::class.java)
+
+//            screenCapture.startCapture(
+//                    captureCallback = { captureBitmap: Bitmap?, result: String ->
+//                        if(captureBitmap == null) {
+//                            Log.e(TAG, "Capture bitmap is null. Result: $result")
+//                            return@startCapture
+//                        }
+//                        Log.d(TAG, "Capture success. Result: $result")
+//                        capture_image.setImageBitmap(captureBitmap)
+//                    },
+//                    completeCallback = {
+//                        Log.d(TAG, "Capture complete.")
+//                    },
+//                    config = ScreenCapture.CaptureConfig(100L, 3000L, 3))
         })
 
     }
